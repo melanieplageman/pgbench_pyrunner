@@ -8,7 +8,7 @@ pg_ctl = os.path.join(pginstall, "pg_ctl")
 pgbench = os.path.join(pginstall, "pgbench")
 psql = os.path.join(pginstall, "psql")
 
-def initdb():
+def initialize():
     try:
         subprocess.check_call([pg_ctl, "-w", "stop"])
     except subprocess.CalledProcessError as e:
@@ -21,46 +21,42 @@ def initdb():
     subprocess.check_call([pg_ctl, "start", "-l", os.path.expandvars("$PGLOG")])
 
     subprocess.check_call(os.path.join(pginstall, "createdb"))
+    conn = psycopg2.connect()
+    return conn
 
-def restart():
+def restart(conn):
+    conn.close()
     subprocess.check_call([pg_ctl, "restart", "-l", os.path.expandvars("$PGLOG")])
+    conn = psycopg2.connect()
+    return conn
 
 def pgbench_load(resultsdir):
     with open(os.path.join(resultsdir, 'load_summary'), 'w') as f:
         subprocess.call([pgbench, "-i", "--no-vacuum", "-s", "1"],
                                         stdout=f, stderr=subprocess.STDOUT)
 
-def create_extensions():
+def create_extensions(conn):
     extensions = ['pg_prewarm', 'pg_buffercache', 'pg_visibility',
         'pageinspect', 'pg_walinspect']
-    conn = psycopg2.connect()
-    cur = conn.cursor()
-    for extension in extensions:
-        SQL = f"CREATE EXTENSION {extension}"
-        cur.execute(SQL)
-    conn.commit()
-    cur.close()
-    conn.close()
 
-def create_pgbench_indexes():
-    conn = psycopg2.connect()
-    cur = conn.cursor()
-    cur.execute("CREATE INDEX ON pgbench_accounts(abalance);")
-    cur.execute("CREATE INDEX ON pgbench_tellers(tbalance);")
-    cur.execute("CREATE INDEX ON pgbench_branches(bbalance);")
-    conn.commit()
-    cur.close()
-    conn.close()
+    with conn.cursor() as cur:
+        for extension in extensions:
+            cur.execute(f"CREATE EXTENSION {extension}")
+            conn.commit()
 
-def pgbench_prewarm():
-    conn = psycopg2.connect()
-    cur = conn.cursor()
-    cur.execute("SELECT pg_prewarm(oid::regclass), relname FROM pg_class WHERE relname LIKE 'pgbench%';")
-    conn.commit()
-    cur.close()
-    conn.close()
+def create_pgbench_indexes(conn):
+    with conn.cursor() as cur:
+        cur.execute("CREATE INDEX ON pgbench_accounts(abalance);")
+        cur.execute("CREATE INDEX ON pgbench_tellers(tbalance);")
+        cur.execute("CREATE INDEX ON pgbench_branches(bbalance);")
+        conn.commit()
 
-def set_gucs():
+def pgbench_prewarm(conn):
+    with conn.cursor() as cur:
+        cur.execute("SELECT pg_prewarm(oid::regclass), relname FROM pg_class WHERE relname LIKE 'pgbench%';")
+        conn.commit()
+
+def set_gucs(conn):
     gucs = {
             'shared_buffers' : '8GB',
             'log_checkpoints': 'on',
@@ -73,23 +69,11 @@ def set_gucs():
             'min_wal_size': '150GB',
             }
 
-    conn = psycopg2.connect()
     conn.set_session(autocommit=True)
-    cur = conn.cursor()
-    for name, value in gucs.items():
-        SQL = f"ALTER SYSTEM SET {name} = '{value}';"
-        cur.execute(SQL)
-    cur.close()
-    conn.close()
-
-def set_guc(name, value):
-    conn = psycopg2.connect()
-    conn.set_session(autocommit=True)
-    cur = conn.cursor()
-    SQL = f"ALTER SYSTEM SET {name} = '{value}';"
-    cur.execute(SQL)
-    cur.close()
-    conn.close()
+    with conn.cursor() as cur:
+        for name, value in gucs.items():
+            cur.execute(f"ALTER SYSTEM SET {name} = '{value}';")
+    conn.set_session(autocommit=False)
 
 def pgbench_run_and_log(resultsdir, extra_args):
     args = [pgbench, '--progress-timestamp', '--random-seed=0',
@@ -101,24 +85,21 @@ def pgbench_run_and_log(resultsdir, extra_args):
     summary.close()
     progress.close()
 
-def reset_stats():
-    conn = psycopg2.connect()
-    cur = conn.cursor()
-    cur.execute("SELECT pg_stat_force_next_flush()")
-    cur.execute("SELECT pg_stat_reset_shared('io')")
-    cur.execute("SELECT pg_stat_reset_shared('wal')")
-    conn.commit()
-    cur.close()
-    conn.close()
+def reset_stats(conn):
+    with conn.cursor() as cur:
+        cur.execute("SELECT pg_stat_force_next_flush()")
+        cur.execute("SELECT pg_stat_reset_shared('io')")
+        cur.execute("SELECT pg_stat_reset_shared('wal')")
+        conn.commit()
 
-def pgbench_vacuum():
+def pgbench_vacuum(conn):
     pgbench_tables = ['pgbench_accounts', 'pgbench_branches',
                       'pgbench_history', 'pgbench_tellers']
-    conn = psycopg2.connect()
     conn.set_session(autocommit=True)
-    cur = conn.cursor()
-    for table in pgbench_tables:
-        SQL = f"VACUUM (VERBOSE) {table}"
-        cur.execute(SQL)
-    cur.close()
+    with conn.cursor() as cur:
+        for table in pgbench_tables:
+            cur.execute(f"VACUUM (VERBOSE) {table}")
+    conn.set_session(autocommit=False)
+
+def cleanup(conn):
     conn.close()
