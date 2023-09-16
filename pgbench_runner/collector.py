@@ -28,7 +28,7 @@ class SeriesCollector(Collector):
 
 
 class IntervalCollector(SeriesCollector):
-    def __init__(self, interval: float = 1, *args, **kwargs):
+    def __init__(self, *args, interval=1, **kwargs):
         super().__init__(*args, **kwargs)
         self.interval: float = interval
         self.stop = Event()

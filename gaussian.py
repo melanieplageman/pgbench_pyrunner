@@ -1,5 +1,8 @@
-import standard
 import os
+import psycopg
+from pgbench_runner import Signaler
+from pgbench_runner import ScalarCollector, SeriesCollector, IntervalCollector, WALCollector
+from pgbench_runner import Postgres, Pgbench
 
 resultsdir = '/tmp/pgresults'
 
@@ -16,15 +19,32 @@ extra_args_read = ['-c', '2', '-j', '2',
                    '-l', f'--log-prefix={read_log_prefix}',
                    '-R', '1000000' ]
 
-conn = standard.initialize()
-standard.pgbench_load(resultsdir)
-standard.set_gucs(conn)
-standard.create_extensions(conn)
-standard.create_pgbench_indexes(conn)
-conn = standard.restart(conn)
-standard.pgbench_prewarm(conn)
-standard.reset_stats(conn)
-standard.pgbench_run_and_log(resultsdir, extra_args_both + extra_args_read)
-standard.reset_stats(conn)
-standard.pgbench_vacuum(conn)
-standard.cleanup(conn)
+postgres = Postgres()
+pgbench = Pgbench(postgres, resultsdir)
+
+wal_collector = WALCollector('wal_out')
+collectors = [wal_collector]
+signaler = Signaler(collectors)
+with signaler.signal("initialize"):
+    postgres.initialize()
+    pgbench.pgbench_load()
+    postgres.set_gucs()
+    postgres.create_extensions()
+    pgbench.create_pgbench_indexes()
+
+with signaler.signal("restart"):
+    postgres.restart()
+    pgbench.pgbench_prewarm()
+
+postgres.reset_stats()
+
+with signaler.signal("run"):
+    pgbench.pgbench_run_and_log(extra_args_both + extra_args_read)
+
+postgres.reset_stats()
+
+with signaler.signal("vacuum"):
+    pgbench.pgbench_vacuum()
+
+with signaler.signal("cleanup"):
+    postgres.cleanup()
