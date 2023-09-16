@@ -31,12 +31,12 @@ class Pgbench:
             conn.commit()
         conn.close()
 
-    def pgbench_run_and_log(self, extra_args):
+    def pgbench_run_and_log(self, name, extra_args):
         args = [self.pgbench, '--progress-timestamp', '--random-seed=0',
         '--no-vacuum', '-M', 'prepared']
         args.extend(extra_args)
-        summary = open(os.path.join(self.resultsdir, 'run_summary'), 'w')
-        progress = open(os.path.join(self.resultsdir, 'run_progress.raw'), 'w')
+        summary = open(os.path.join(self.resultsdir, name + '_run_summary'), 'w')
+        progress = open(os.path.join(self.resultsdir, name + '_run_progress.raw'), 'w')
         subprocess.call(args, stdout=summary, stderr=progress)
         summary.close()
         progress.close()

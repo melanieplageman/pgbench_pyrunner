@@ -21,3 +21,9 @@ class WALCollector(PgbenchRunCollector):
         with self.connection.cursor() as cursor:
             cursor.execute("SELECT NOW() AS ts, * FROM pg_stat_wal")
             self.emit(cursor.fetchone())
+
+class PgStatIOCollector(PgbenchRunCollector):
+    def invoke(self):
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT NOW() AS ts, * FROM pg_stat_io")
+            self.emit(cursor.fetchone())
