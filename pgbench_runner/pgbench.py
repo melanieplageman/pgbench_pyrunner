@@ -4,16 +4,17 @@ import psycopg
 
 
 class Pgbench:
-    def __init__(self, postgres, resultsdir):
-        self.pgbench = os.path.join(postgres.pginstall, "pgbench")
-        self.pgbench_tables = ['pgbench_accounts', 'pgbench_branches',
-                      'pgbench_history', 'pgbench_tellers']
-        self.resultsdir = resultsdir
+    pgbench_tables = [
+        'pgbench_accounts',
+        'pgbench_branches',
+        'pgbench_history',
+        'pgbench_tellers',
+    ]
 
     def pgbench_load(self):
-        with open(os.path.join(self.resultsdir, 'load_summary'), 'w') as f:
-            subprocess.call([self.pgbench, "-i", "--no-vacuum", "-s", "1"],
-                                            stdout=f, stderr=subprocess.STDOUT)
+        with open('load_summary', 'w') as f:
+            subprocess.call(['pgbench', "-i", "--no-vacuum", "-s", "1"],
+                            stdout=f, stderr=subprocess.STDOUT)
 
     def create_pgbench_indexes(self):
         conn = psycopg.connect()
@@ -31,20 +32,18 @@ class Pgbench:
             conn.commit()
         conn.close()
 
-    def pgbench_run_and_log(self, name, extra_args):
-        args = [self.pgbench, '--progress-timestamp', '--random-seed=0',
-        '--no-vacuum', '-M', 'prepared']
-        args.extend(extra_args)
-        summary = open(os.path.join(self.resultsdir, name + '_run_summary'), 'w')
-        progress = open(os.path.join(self.resultsdir, name + '_run_progress.raw'), 'w')
-        subprocess.call(args, stdout=summary, stderr=progress)
-        summary.close()
-        progress.close()
-
+    def pgbench_run_and_log(self, name, *args):
+        with open(name + '_run_summary', 'w') as summary,
+                open(name + '_run_progress.raw', 'w') as progress:
+            subprocess.call([
+                'pgbench', '--progress-timestamp',
+                '--random-seed=0',
+                '--no-vacuum', '-M', 'prepared',
+                *args], stdout=summary, stderr=progress)
 
     def pgbench_vacuum(self):
         conn = psycopg.connect()
-        conn.autocommit=True
+        conn.autocommit = True
         with conn.cursor() as cur:
             for table in self.pgbench_tables:
                 cur.execute(f"VACUUM (VERBOSE) {table}")

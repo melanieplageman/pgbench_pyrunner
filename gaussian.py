@@ -1,37 +1,29 @@
 import os
-import psycopg
-from pgbench_runner import Signaler
-from pgbench_runner import ScalarCollector, SeriesCollector, IntervalCollector
-from pgbench_runner import WALCollector, PgStatIOCollector
-from pgbench_runner import Postgres, Pgbench
+import tempfile
 
-resultsdir = '/tmp/pgresults'
+from pgbench_runner import *
+
+os.environ['PATH'] = os.path.expandvars('$PGINSTALL:$PATH')
+
+root = '/tmp/pgresults'
+workload = 'A'
+algorithm = '0'
+os.makedirs(os.path.join(root, workload, algorithm), exist_ok=True)
+resultsdir = tempfile.TemporaryDirectory(prefix='_'.join([workload, algorithm]))
+os.chdir(resultsdir)
 
 runtime = 10
 report_sample_interval = 2
-read_log_prefix = os.path.join(resultsdir, 'execution_reports',
-                               'pgbench_log_read')
-write_log_prefix = os.path.join(resultsdir, 'execution_reports',
-                                'pgbench_log_write')
-
-extra_args_both = ['-T', f'{runtime}',
-                   '-P', f'{report_sample_interval}']
-
-extra_args_read = ['-c', '2', '-j', '2',
-                   '--builtin=select-only',
-                   '-l', f'--log-prefix={read_log_prefix}',
-                   '-R', '1000000' ]
-
-extra_args_write = ['-c', '16', '-j', '16',
-                   '-l', f'--log-prefix={write_log_prefix}', ]
 
 postgres = Postgres()
-pgbench = Pgbench(postgres, resultsdir)
+pgbench = Pgbench()
 
-wal_collector = WALCollector(os.path.join(resultsdir, 'pgstatwal.raw'))
-pgstatio_collector = PgStatIOCollector(os.path.join(resultsdir, 'pgstatio.raw'))
+wal_collector = WALCollector('pgstatwal.raw')
+pgstatio_collector = PgStatIOCollector('pgstatio.raw')
+
 collectors = [wal_collector, pgstatio_collector]
 signaler = Signaler(collectors)
+
 with signaler.signal("initialize"):
     postgres.initialize()
     pgbench.pgbench_load()
@@ -45,9 +37,27 @@ with signaler.signal("restart"):
 
 postgres.reset_stats()
 
+os.mkdir('execution_reports')
 with signaler.signal("run"):
-    # pgbench.pgbench_run_and_log('read', extra_args_both + extra_args_read)
-    pgbench.pgbench_run_and_log('write', extra_args_both + extra_args_write)
+    common_args = ['-T', str(runtime), '-P', str(report_sample_interval)]
+
+    read_args = common_args + [
+        '-c', '2',
+        '-j', '2',
+        '--builtin=select-only',
+        '-l',
+        f'--log-prefix=execution_reports/pgbench_log_read',
+        '-R', '1000000',
+    ]
+
+    write_args = common_args + [
+        '-c', '16',
+        '-j', '16',
+        '-l', f'--log-prefix=execution_reports/pgbench_log_write',
+    ]
+
+    pgbench.pgbench_run_and_log('read', *read_args)
+    pgbench.pgbench_run_and_log('write', *write_args)
 
 postgres.reset_stats()
 
@@ -55,4 +65,4 @@ with signaler.signal("vacuum"):
     pgbench.pgbench_vacuum()
 
 with signaler.signal("cleanup"):
-    postgres.cleanup()
+    pass

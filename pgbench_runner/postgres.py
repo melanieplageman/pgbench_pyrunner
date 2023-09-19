@@ -3,80 +3,66 @@ import shutil
 import os
 import psycopg
 
-
 class Postgres:
     def __init__(self):
-        self.connection = None
-        self._pginstall = None
-        self._pg_ctl = None
+        self._connection = None
 
     @property
-    def pginstall(self):
-        if self._pginstall is None:
-            self._pginstall = os.path.expandvars("$PGINSTALL")
-        return self._pginstall
-
-    
-    @property
-    def pg_ctl(self):
-        if self._pg_ctl is None:
-            self._pg_ctl = os.path.join(self.pginstall, "pg_ctl")
-        return self._pg_ctl
+    def connection(self):
+        if self._connection is None:
+            self._connection = psycopg.connect()
+            self.autocommit = True
+        return self._connection
 
     def initialize(self):
-        try:
-            subprocess.check_call([self.pg_ctl, "-w", "stop"])
-        except subprocess.CalledProcessError as e:
-            print(f"Return code {e.returncode} while stopping server")
+        returncode = subprocess.call(['pg_ctl', "-w", "stop"])
+        print(f"Return code {returncode} while stopping server")
 
-        shutil.rmtree(os.path.expandvars("$PGDATA"))
+        shutil.rmtree(os.environ["PGDATA"])
 
-        subprocess.check_call(os.path.join(self.pginstall, "initdb"))
+        subprocess.check_call("initdb")
 
-        subprocess.check_call([self.pg_ctl, "start", "-l", os.path.expandvars("$PGLOG")])
+        subprocess.check_call(['pg_ctl', "start", "-l", os.environ["PGLOG"]])
 
-        subprocess.check_call(os.path.join(self.pginstall, "createdb"))
-        self.connection = psycopg.connect()
+        subprocess.check_call("createdb")
 
     def restart(self):
-        self.connection.close()
-        subprocess.check_call([self.pg_ctl, "restart", "-l", os.path.expandvars("$PGLOG")])
-        self.connection = psycopg.connect()
+        if self._connection is not None:
+            self._connection.close()
+        self._connection = None
 
-    def create_extensions(self):
-        extensions = ['pg_prewarm', 'pg_buffercache', 'pg_visibility',
-            'pageinspect', 'pg_walinspect']
+        subprocess.check_call(['pg_ctl', "restart", "-l", os.environ["PGLOG"]])
+
+    def create_extensions(self, *args):
+        extensions = [
+            'pg_prewarm', 'pg_buffercache', 'pg_visibility',
+            'pageinspect', 'pg_walinspect', *args,
+        ]
 
         with self.connection.cursor() as cur:
             for extension in extensions:
                 cur.execute(f"CREATE EXTENSION {extension}")
-                self.connection.commit()
 
-    def set_gucs(self):
+    def set_gucs(self, **kwargs):
         gucs = {
-                'shared_buffers' : '8GB',
-                'log_checkpoints': 'on',
-                'track_io_timing': 'on',
-                'track_wal_io_timing': 'on',
-                'log_autovacuum_min_duration': 0,
-                'maintenance_work_mem': '1GB',
-                'autovacuum_naptime': 10,
-                'max_wal_size': '150GB',
-                'min_wal_size': '150GB',
-                }
+            'shared_buffers' : '8GB',
+            'log_checkpoints': 'on',
+            'track_io_timing': 'on',
+            'track_wal_io_timing': 'on',
+            'log_autovacuum_min_duration': 0,
+            'maintenance_work_mem': '1GB',
+            'autovacuum_naptime': 10,
+            'max_wal_size': '150GB',
+            'min_wal_size': '150GB',
+            **kwargs,
+        }
 
-        self.connection.autocommit=True
         with self.connection.cursor() as cur:
             for name, value in gucs.items():
                 cur.execute(f"ALTER SYSTEM SET {name} = '{value}';")
-        self.connection.autocommit=False
 
     def reset_stats(self):
         with self.connection.cursor() as cur:
             cur.execute("SELECT pg_stat_force_next_flush()")
             cur.execute("SELECT pg_stat_reset_shared('io')")
             cur.execute("SELECT pg_stat_reset_shared('wal')")
-            self.connection.commit()
-
-    def cleanup(self):
-        self.connection.close()
