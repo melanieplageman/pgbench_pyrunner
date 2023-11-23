@@ -5,14 +5,16 @@ from pgbench_runner import *
 
 os.environ['PATH'] = os.path.expandvars('$PGINSTALL:$PATH')
 
-root = '/tmp/pgresults'
+root = '/Users/melanieplageman/code'
 workload = 'A'
-algorithm = '0'
-os.makedirs(os.path.join(root, workload, algorithm), exist_ok=True)
-resultsdir = tempfile.TemporaryDirectory(prefix='_'.join([workload, algorithm]))
+algorithm = '3'
+
+workloaddir = os.makedirs(os.path.join(root, workload, algorithm), exist_ok=True)
+resultsdir = os.path.join(workloaddir, datetime.datetime.now())
+os.makedir(resultsdir)
 os.chdir(resultsdir)
 
-runtime = 10
+runtime = 20
 report_sample_interval = 2
 
 postgres = Postgres()
@@ -27,7 +29,7 @@ signaler = Signaler(collectors)
 with signaler.signal("initialize"):
     postgres.initialize()
     pgbench.pgbench_load()
-    postgres.set_gucs()
+    postgres.set_gucs('opp_freeze_algo'=3)
     postgres.create_extensions()
     pgbench.create_pgbench_indexes()
 
@@ -38,6 +40,7 @@ with signaler.signal("restart"):
 postgres.reset_stats()
 
 os.mkdir('execution_reports')
+
 with signaler.signal("run"):
     common_args = ['-T', str(runtime), '-P', str(report_sample_interval)]
 

@@ -10,8 +10,7 @@ class Postgres:
     @property
     def connection(self):
         if self._connection is None:
-            self._connection = psycopg.connect()
-            self.autocommit = True
+            self._connection = psycopg.connect(autocommit=True)
         return self._connection
 
     def initialize(self):

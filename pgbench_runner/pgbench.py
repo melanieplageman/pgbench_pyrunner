@@ -33,13 +33,13 @@ class Pgbench:
         conn.close()
 
     def pgbench_run_and_log(self, name, *args):
-        with open(name + '_run_summary', 'w') as summary,
-                open(name + '_run_progress.raw', 'w') as progress:
-            subprocess.call([
-                'pgbench', '--progress-timestamp',
-                '--random-seed=0',
-                '--no-vacuum', '-M', 'prepared',
-                *args], stdout=summary, stderr=progress)
+        with open(name + '_run_summary', 'w') as summary:
+            with open(name + '_run_progress.raw', 'w') as progress:
+                subprocess.call([
+                    'pgbench', '--progress-timestamp',
+                    '--random-seed=0',
+                    '--no-vacuum', '-M', 'prepared',
+                    *args], stdout=summary, stderr=progress)
 
     def pgbench_vacuum(self):
         conn = psycopg.connect()
