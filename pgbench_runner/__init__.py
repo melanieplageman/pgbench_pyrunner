@@ -7,10 +7,10 @@ from pgbench_runner.postgres_collector import (
         PgStatAllTablesCollector, RelfrozenxidCollector
         )
 from pgbench_runner.postgres import Postgres
-from pgbench_runner.pgbench import Pgbench
+from pgbench_runner.pgbench import PgbenchDefault
 
 __all__ = (
     "Collector", "ScalarCollector", "SeriesCollector", "IntervalCollector",
-    "Signaler", "WALCollector", "Postgres", "Pgbench", "PgStatIOCollector",
+    "Signaler", "WALCollector", "Postgres", "PgbenchDefault", "PgStatIOCollector",
     "RelfrozenxidCollector", "PgStatAllTablesCollector"
 )

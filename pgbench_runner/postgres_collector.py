@@ -34,7 +34,6 @@ class QueryBenchRunCollector(BenchRunCollector):
             ts, *rest = cursor.fetchone()
             self.emit([ts.isoformat(), *rest])
 
-
 class WALCollector(QueryBenchRunCollector):
     def __init__(self, *args, **kwargs):
         query = "SELECT now() AS ts, * FROM pg_stat_wal"
