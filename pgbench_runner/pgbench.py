@@ -67,17 +67,17 @@ class PgbenchSwitchInsertUpdate(Pgbench):
         super().__init__(tables = ['insert_update_shift'])
         self.run_counter = 0
 
-    def load(self):
+    def load(self, fillfactor=100):
         conn = psycopg.connect()
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(f"""
             CREATE TABLE insert_update_shift(
                 id SERIAL,
                 description TEXT,
                 quantity INT,
                 itime TIMESTAMPTZ,
                 client_id INT)
-                WITH (fillfactor = 50);
+                WITH (fillfactor = {fillfactor});
             """)
             conn.commit()
         conn.close()
