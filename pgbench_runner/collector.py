@@ -40,6 +40,7 @@ class IntervalCollector(SeriesCollector):
     def invoke_loop(self):
         while True:
             self.invoke()
+            self.output_file.flush()
 
             if self.stop.wait(timeout=self.interval) is True:
                 return

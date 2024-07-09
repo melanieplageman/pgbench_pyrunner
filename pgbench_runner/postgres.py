@@ -30,6 +30,8 @@ class Postgres:
             self._connection.close()
         self._connection = None
 
+        logfile = os.environ["PGLOG"]
+        os.truncate(logfile, 0)
         subprocess.check_call(['pg_ctl', "restart", "-l", os.environ["PGLOG"]])
 
     def create_extensions(self, *args):
