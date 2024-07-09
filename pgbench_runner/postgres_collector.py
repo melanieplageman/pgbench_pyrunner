@@ -1,10 +1,11 @@
 from pgbench_runner import ScalarCollector, SeriesCollector, Signaler, IntervalCollector
 import psycopg
 import subprocess
+from psycopg.rows import namedtuple_row
 
 class BenchRunCollector(IntervalCollector):
     def after_restart(self):
-        self.connection = psycopg.connect()
+        self.connection = psycopg.connect(row_factory=namedtuple_row)
 
     def before_run(self):
         self.thread.start()
@@ -31,8 +32,10 @@ class QueryBenchRunCollector(BenchRunCollector):
     def invoke(self):
         with self.connection.cursor() as cursor:
             cursor.execute(self.query)
-            ts, *rest = cursor.fetchone()
-            self.emit([ts.isoformat(), *rest])
+            rowset = cursor.fetchall()
+            for row in rowset:
+                row = row._replace(ts=row.ts.isoformat())
+                self.emit(row)
 
 class WALCollector(QueryBenchRunCollector):
     def __init__(self, *args, **kwargs):
@@ -45,8 +48,11 @@ class PgStatIOCollector(QueryBenchRunCollector):
         super().__init__(query, *args, **kwargs)
 
 class PgStatAllTablesCollector(QueryBenchRunCollector):
-    def __init__(self, *args, **kwargs):
-        query = "SELECT now() AS ts, * FROM pg_stat_all_tables"
+    def __init__(self, relname, *args, **kwargs):
+        query = f"""
+        SELECT now() AS ts, *
+        FROM pg_stat_all_tables WHERE relname = '{relname}'
+        """
         super().__init__(query, *args, **kwargs)
 
 class RelfrozenxidCollector(QueryBenchRunCollector):

@@ -67,3 +67,7 @@ class Postgres:
             cur.execute("SELECT pg_stat_force_next_flush()")
             cur.execute("SELECT pg_stat_reset_shared('io')")
             cur.execute("SELECT pg_stat_reset_shared('wal')")
+
+    def force_flush_stats(self):
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT pg_stat_force_next_flush()")

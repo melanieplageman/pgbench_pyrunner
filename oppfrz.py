@@ -23,21 +23,24 @@ os.makedirs(resultsdir, exist_ok=True)
 os.chdir(resultsdir)
 
 runtime = 10
-report_sample_interval = 2
+report_sample_interval = 1
 
 postgres = Postgres()
 pgbench = PgbenchSwitchInsertUpdate()
 
-# wal_collector = WALCollector('pgstatwal.raw')
-# pgstatio_collector = PgStatIOCollector('pgstatio.raw')
-# relfrozenxid_collector = RelfrozenxidCollector('relfrozenxid.raw')
-# collectors = [wal_collector, pgstatio_collector, relfrozenxid_collector, alltables_collector]
+wal_collector = WALCollector('pgstatwal.raw')
+pgstatio_collector = PgStatIOCollector('pgstatio.raw')
+relfrozenxid_collector = RelfrozenxidCollector('relfrozenxid.raw')
+alltables_collector = PgStatAllTablesCollector('insert_update_shift',
+                                               'alltables.raw')
+collectors = [
+        wal_collector,
+        pgstatio_collector,
+        relfrozenxid_collector,
+        alltables_collector,
+        ]
 
-alltables_collector = PgStatAllTablesCollector('alltables.raw')
-collectors = [alltables_collector]
 signaler = Signaler(collectors)
-                      # autovacuum_vacuum_scale_factor=0.1,
-                      # autovacuum_vacuum_threshold=10,
 
 with signaler.signal("initialize"):
     postgres.initialize()
@@ -50,6 +53,7 @@ with signaler.signal("restart"):
     postgres.restart()
     pgbench.prewarm()
 
+postgres.force_flush_stats()
 postgres.reset_stats()
 
 os.makedirs('execution_reports', exist_ok=True)
@@ -61,14 +65,19 @@ with signaler.signal("run"):
         '-c', '16',
         '-j', '16',
     ]
+    execution_reports_arts = [
+        '-l',
+        '--log-prefix=execution_reports/su',
+    ]
 
-        # '-l',
-        # '--log-prefix=execution_reports/su',
     pgbench.run_and_log('insert', *write_args)
+    postgres.force_flush_stats()
     pgbench.run_and_log('update', *write_args)
+    postgres.force_flush_stats()
 
 with signaler.signal("vacuum"):
     pgbench.vacuum()
+    postgres.force_flush_stats()
 
 with signaler.signal("cleanup"):
     pass
