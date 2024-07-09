@@ -4,6 +4,7 @@ from pgbench_runner.collector import (
 from pgbench_runner.signal import Signaler
 from pgbench_runner.postgres_collector import (
         WALCollector, PgStatIOCollector, VacuumFrzCollector,
+        PgStatAllTablesCollector, RelfrozenxidCollector
         )
 from pgbench_runner.postgres import Postgres
 from pgbench_runner.pgbench import Pgbench
@@ -11,5 +12,5 @@ from pgbench_runner.pgbench import Pgbench
 __all__ = (
     "Collector", "ScalarCollector", "SeriesCollector", "IntervalCollector",
     "Signaler", "WALCollector", "Postgres", "Pgbench", "PgStatIOCollector",
-    "VacuumFrzCollector",
+    "RelfrozenxidCollector", "PgStatAllTablesCollector"
 )

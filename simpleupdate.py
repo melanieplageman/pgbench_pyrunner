@@ -24,9 +24,8 @@ pgbench = Pgbench()
 
 wal_collector = WALCollector('pgstatwal.raw')
 pgstatio_collector = PgStatIOCollector('pgstatio.raw')
-vacfrz_collector = VacuumFrzCollector(['pgbench_accounts'], 'vacfrz.raw')
 
-collectors = [wal_collector, pgstatio_collector, vacfrz_collector]
+collectors = [wal_collector, pgstatio_collector]
 signaler = Signaler(collectors)
 
 with signaler.signal("initialize"):
