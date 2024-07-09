@@ -4,9 +4,7 @@ import datetime
 
 from pgbench_runner import *
 
-os.environ['PATH'] = os.path.expandvars('$PGINSTALL:$PATH')
-
-root = '/Users/melanieplageman/code'
+root = '/home/melanieplageman/code'
 workload = 'A'
 algorithm = '3'
 
