@@ -1,4 +1,5 @@
 from threading import Thread, Event
+import csv
 
 class Collector:
     def __init__(self, name):
@@ -10,6 +11,14 @@ class Collector:
 
     def cleanup(self):
         self.output_file.close()
+
+class CSVCollector(Collector):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.writer= csv.writer(self.output_file)
+
+    def emit(self, data):
+        self.writer.writerow(data)
 
 
 class ScalarCollector(Collector):
@@ -23,7 +32,7 @@ class ScalarCollector(Collector):
         self.done = True
 
 
-class SeriesCollector(Collector):
+class SeriesCollector(CSVCollector):
     pass
 
 

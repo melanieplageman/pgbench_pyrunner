@@ -2,7 +2,7 @@ from pgbench_runner import ScalarCollector, SeriesCollector, Signaler, IntervalC
 import psycopg
 import subprocess
 
-class PgbenchRunCollector(IntervalCollector):
+class BenchRunCollector(IntervalCollector):
     def after_restart(self):
         self.connection = psycopg.connect()
 
@@ -16,37 +16,41 @@ class PgbenchRunCollector(IntervalCollector):
         self.connection.close()
         super().cleanup()
 
+class QueryBenchRunCollector(BenchRunCollector):
+    def __init__(self, query, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.query = query
 
-class WALCollector(PgbenchRunCollector):
-    def invoke(self):
-        with self.connection.cursor() as cursor:
-            cursor.execute("SELECT NOW() AS ts, * FROM pg_stat_wal")
-            ts, *rest = cursor.fetchone()
-            self.emit(ts.isoformat() + "," + ",".join(list(rest)))
-
-class PgStatIOCollector(PgbenchRunCollector):
-    def invoke(self):
-        with self.connection.cursor() as cursor:
-            cursor.execute("SELECT NOW() AS ts, * FROM pg_stat_io")
-            ts, *rest = cursor.fetchone()
-            self.emit(ts.isoformat() + "," + ",".join(list(rest)))
-
-class PgStatAllTablesCollector(PgbenchRunCollector):
     def before_run(self):
         with self.connection.cursor() as cursor:
-            cursor.execute("SELECT now() AS ts, * FROM pg_stat_all_tables")
-            self.emit(",".join([c.name for c in cursor.description]))
+            cursor.execute(self.query)
+            self.emit([c.name for c in cursor.description])
+
         super().before_run()
 
     def invoke(self):
         with self.connection.cursor() as cursor:
-            cursor.execute("SELECT now() AS ts, * FROM pg_stat_all_tables")
+            cursor.execute(self.query)
             ts, *rest = cursor.fetchone()
-            self.emit(f"{ts.isoformat()}," + ",".join(list(str(item) for item in rest)))
+            self.emit([ts.isoformat(), *rest])
 
-class RelfrozenxidCollector(PgbenchRunCollector):
-    def invoke(self):
-        with self.connection.cursor() as cursor:
-            cursor.execute("SELECT now() AS ts, relfrozenxid FROM pg_class")
-            ts, relfrozenxid = cursor.fetchone()
-            self.emit(f"{ts.isoformat()},{relfrozenxid}")
+
+class WALCollector(QueryBenchRunCollector):
+    def __init__(self, *args, **kwargs):
+        query = "SELECT now() AS ts, * FROM pg_stat_wal"
+        super().__init__(query, *args, **kwargs)
+
+class PgStatIOCollector(QueryBenchRunCollector):
+    def __init__(self, *args, **kwargs):
+        query = "SELECT now() AS ts, * FROM pg_stat_io"
+        super().__init__(query, *args, **kwargs)
+
+class PgStatAllTablesCollector(QueryBenchRunCollector):
+    def __init__(self, *args, **kwargs):
+        query = "SELECT now() AS ts, * FROM pg_stat_all_tables"
+        super().__init__(query, *args, **kwargs)
+
+class RelfrozenxidCollector(QueryBenchRunCollector):
+    def __init__(self, *args, **kwargs):
+        query = "SELECT now() AS ts, relfrozenxid FROM pg_class"
+        super().__init__(query, *args, **kwargs)
