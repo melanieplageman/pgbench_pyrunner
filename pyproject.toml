@@ -1,6 +1,9 @@
 [project]
 name = "pgbench-runner"
 version = "0.0.1"
+dependencies = [
+  "psycopg[c]"
+]
 
 [build-system]
 requires = ["setuptools"]
