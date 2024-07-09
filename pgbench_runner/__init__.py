@@ -3,7 +3,7 @@ from pgbench_runner.collector import (
 )
 from pgbench_runner.signal import Signaler
 from pgbench_runner.postgres_collector import (
-        WALCollector, PgStatIOCollector, VacuumFrzCollector,
+        WALCollector, PgStatIOCollector,
         PgStatAllTablesCollector, RelfrozenxidCollector
         )
 from pgbench_runner.postgres import Postgres
