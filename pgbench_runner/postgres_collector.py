@@ -5,7 +5,8 @@ from psycopg.rows import namedtuple_row
 
 class BenchRunCollector(IntervalCollector):
     def after_restart(self):
-        self.connection = psycopg.connect(row_factory=namedtuple_row)
+        self.connection = psycopg.connect(row_factory=namedtuple_row,
+                                          autocommit=True)
 
     def before_run(self):
         self.thread.start()
